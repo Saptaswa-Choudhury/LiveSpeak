@@ -1,4 +1,3 @@
-// --- 1. SETUP ---
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -7,7 +6,6 @@ const { DeepgramClient, LiveTranscriptionEvents } = require('@deepgram/sdk');
 
 const port = 3000;
 
-// --- 2. INITIALIZATION ---
 const app = express();
 const server = http.createServer(app);
 
@@ -21,7 +19,6 @@ const wss = new WebSocketServer({ server });
 const viewers = new Set();
 console.log('Server initialized. Waiting for connections...');
 
-// --- 3. WEBSOCKET CONNECTION HANDLING ---
 wss.on('connection', (ws, req) => {
     let deepgramLive;
     let keepAliveInterval;
@@ -29,7 +26,6 @@ wss.on('connection', (ws, req) => {
     if (req.url === '/speak') {
         console.log('A Speaker connected.');
 
-        // --- THE KEY CHANGE: BUFFERING LOGIC ---
         let audioBuffer = [];
         let isDeepgramReady = false;
 
@@ -56,12 +52,11 @@ wss.on('connection', (ws, req) => {
         deepgramLive.on(LiveTranscriptionEvents.Open, () => {
             console.log('[DEEPGRAM] Connection opened. Flushing audio buffer...');
             isDeepgramReady = true;
-            // Send any audio that was buffered while waiting for the connection to open.
             for (const chunk of audioBuffer) {
                 deepgramLive.send(chunk);
             }
             console.log(`[DEEPGRAM] Flushed ${audioBuffer.length} audio chunks.`);
-            audioBuffer = []; // Clear the buffer
+            audioBuffer = []; 
         });
 
         deepgramLive.on(LiveTranscriptionEvents.Close, () => {
@@ -70,9 +65,6 @@ wss.on('connection', (ws, req) => {
         });
         deepgramLive.on(LiveTranscriptionEvents.Error, (err) => console.error('[DEEPGRAM] Error:', err));
         
-        // We no longer need the metadata log for debugging.
-        // deepgramLive.on(LiveTranscriptionEvents.Metadata, (data) => console.log('[DEEPGRAM METADATA]', data));
-
         deepgramLive.on(LiveTranscriptionEvents.Transcript, (data) => {
             const transcript = data.channel.alternatives[0].transcript;
             if (transcript) {
@@ -85,8 +77,6 @@ wss.on('connection', (ws, req) => {
         });
         
         ws.on('message', (data) => {
-            // If Deepgram is ready, send the audio directly.
-            // If not, buffer it to be sent when the connection opens.
             if (isDeepgramReady && deepgramLive.getReadyState() === 1) {
                 deepgramLive.send(data);
             } else {
@@ -113,11 +103,11 @@ wss.on('connection', (ws, req) => {
     ws.on('error', (err) => console.error(`Connection error:`, err));
 });
 
-// --- 4. SERVER STARTUP ---
 app.use(express.static('public'));
 server.listen(port, () => {
     console.log(`LiveSpeak server is listening on http://localhost:${port}`);
     console.log('Access Speaker page at http://localhost:3000/speaker.html');
     console.log('Access Viewer page at http://localhost:3000/viewer.html');
 });
+
 
